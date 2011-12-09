@@ -19,11 +19,15 @@ void setup() {
   PFont font;
   font = loadFont("Calibri-20.vlw"); 
   textFont(font);
-  portName = "COM8";
+  portName = "COM8";                      // Change port number here for now...
   String listPorts[] = Serial.list();
   for (int i=0; i<listPorts.length; i++) {
     text(i + ") " + listPorts[i], 20, 20+30*i);
   }
+  
+  //
+  // Eventually listen for keyboard input and select from that.
+  //
   
   serialPort = new Serial(this, portName, 115200);
   serialPort.clear();
