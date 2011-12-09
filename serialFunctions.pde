@@ -5,13 +5,12 @@ public class RCIPacket {
   public int value;
 }
 
-public class SerialThread extends Thread {
+public class SerialReader {
   final int SlipEnd = 0xC0;
   final int SlipEsc = 0xDB;
   final int SlipEscEnd = 0xDC;
   final int SlipEscEsc = 0xDD;
   
-  private boolean running; // Is the thread running?
   private String id; // Thread name/id, in case of multiple instances
   private String port; // Serial port name to open for the thread
   private boolean available; // Has a new packet been received and parsed?
@@ -21,15 +20,10 @@ public class SerialThread extends Thread {
   private int[] packetBuffer;
   private int bufferPosition;
   private RCIPacket packet;
-  
-  private PApplet parent;
 
   // Constructor, probably want the serial port name passed in here
-  public SerialThread(Serial tempSerial/*PApplet theParent*/, String s, String portName) {
-    //parent = theParent;
-    running = false;
+  public SerialReader(Serial tempSerial, String s, String portName) {
     id = s;
-    port = portName;
     readResult = 0;
     packetBuffer = new int[30];
     packet = new RCIPacket();
@@ -38,69 +32,42 @@ public class SerialThread extends Thread {
     available = false;
     
     myPort = tempSerial;
-  }
-
-  public void start() {
-    running = true;
-    System.out.println("Starting serial thread " + id + " for port " + port + ".");
-//    myPort = new Serial(parent, port, 57600);
-//    delay(50);
 //    myPort.clear();
 //    myPort.bufferUntil(SlipEnd);
-
-    super.start();
   }
-  
-  public void run() {
-    println("Running...");
-    
-    while (running){
-        println(myPort.read());
-//      println(myPort.available());
-      if(myPort.available() > 0) readResult = slipRead(packetBuffer, bufferPosition, 20);
-      if (newData) {
-        newData = false;
-        if(bufferPosition > 6) {
-          switch(packetBuffer[3]) {
-            case 4:  //AMP packet
-              packet.packetType = packetBuffer[3];
-              packet.value = (packetBuffer[5] << 8) & packetBuffer[6];
-              println(packet.value);
-              available = true;
-              break;
-              default:
-              break;
-          }
-        
-          bufferPosition = 0;
-        }
+
+  public void checkSerial() {
+//    if(myPort.available() > 0) readResult = slipRead(packetBuffer, bufferPosition, 20);
+    int tempRead = slipRead(packetBuffer, bufferPosition, 20);
+    if(tempRead > 2) {    
+      newData = true;
+    }
+    bufferPosition += tempRead;
+    if (newData) {
+      newData = false;
+      if(bufferPosition > 6) {
+        switch(packetBuffer[3]) {
+          case 4:  //AMP packet
+            packet.packetType = packetBuffer[3];
+            packet.value = (packetBuffer[5] << 8) + packetBuffer[6];
+            available = true;
+            break;
+            default:
+            break;
+        }      
+        bufferPosition = 0;
       }
     }
-    System.out.println("Serial thread " + id + "for port " + port + " ended.");
   }
-  
-  public void quit() {
-    System.out.println("Quitting serial thread " + id + "for port " + port + ".");
-    running = false;
-    interrupt();
-  }
-  
+
   public boolean available() {
     return available;
   }
   
   public RCIPacket getPacket() {
+    available = false;
     return packet;
-  }
-  
-//  void serialEvent(Serial myPort) {
-//    int tempRead = slipRead(packetBuffer, bufferPosition, 20);
-//    if(tempRead > 2) {    
-//      newData = true;
-//    }
-//    println("Event");
-//    bufferPosition += tempRead;
-//  }
+  }  
   
   /// <summary>
   /// Overrides base SerialProvider.Read() method to provide SLIP framing.
@@ -159,8 +126,7 @@ public class SerialThread extends Thread {
     return bytesReceived;
   }
   
-  
-  /// <summary>
+    /// <summary>
   /// Serial Write function to provide SLIP framing.
   /// </summary>
   /// <param name="buffer"></param>
